@@ -42,13 +42,20 @@ Write-Host "Retrieving meetings from $StartDate to $EndDate..."
 
 $Uri = "https://graph.microsoft.com/v1.0/users/$($TargetUser.id)/events?"
 $Filter = [System.Web.HttpUtility]::UrlEncode("start/dateTime ge '$StartDate' and end/dateTime le '$EndDate'")
-$MeetingsUri = "$Uri`$filter=$Filter&`$select=subject,start,end,onlineMeeting,onlineMeetingUrl"
+$MeetingsUri = "$Uri`$filter=$Filter&`$select=subject,start,end,onlineMeeting,onlineMeetingUrl,bodyPreview"
 
 $Meetings = Invoke-RestMethod -Method Get -Uri $MeetingsUri -Headers $Headers
 
 if ($Meetings.value) {
     foreach ($Meeting in $Meetings.value) {
         Write-Host "`nProcessing meeting: $($Meeting.subject)" -ForegroundColor Green
+
+        # Display the meeting description if available
+        if ($Meeting.bodyPreview) {
+            Write-Host "Meeting Description:`n$($Meeting.bodyPreview)" -ForegroundColor Cyan
+        } else {
+            Write-Host "No description provided for this meeting." -ForegroundColor Yellow
+        }
 
         if ($Meeting.onlineMeeting) {
             # Decode Join URL
@@ -77,7 +84,19 @@ if ($Meetings.value) {
 
                     if ($AttendanceRecords.value) {
                         foreach ($Record in $AttendanceRecords.value) {
-                            Write-Host "User: $($Record.identity.user.displayName), Total Time: $($Record.totalAttendanceInSeconds) seconds"
+                            # Access display name and email address
+                            $UserName = $Record.identity.displayName
+                            $EmailAddress = $Record.emailAddress
+
+                            if (-not $UserName) {
+                                $UserName = "Unknown User"
+                            }
+                            if (-not $EmailAddress) {
+                                $EmailAddress = "No Email Address"
+                            }
+
+                            # Display user information
+                            Write-Host "User: $UserName, Email: $EmailAddress, Total Time: $($Record.totalAttendanceInSeconds) seconds" -ForegroundColor Cyan
                         }
                     } else {
                         Write-Host "No attendance records found for this meeting." -ForegroundColor Yellow
