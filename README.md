@@ -1,6 +1,6 @@
 # Microsoft Graph API - Attendance and Meeting Insights Script
 
-This PowerShell script uses the Microsoft Graph API and Teams Application Access Policies to retrieve Teams meetings and attendance data for a specific user over the past 7 days. It authenticates using the **Client Credentials Flow** and ensures secure access via access policies.
+This PowerShell script uses the Microsoft Graph API and Teams Application Access Policies to retrieve Teams meetings and attendance data for a specific user over the past 7 days. It supports **group-based policy management** to assign access to users in bulk.
 
 ---
 
@@ -12,6 +12,9 @@ This PowerShell script uses the Microsoft Graph API and Teams Application Access
   - **Online Meeting Details**
   - **Attendance Reports** with participant names, emails, and attendance durations.
 - Leverages **Teams Application Access Policies** for access control.
+- Supports group-based policy management:
+  - Retrieve group members.
+  - Apply application access policies to all members in the group.
 - Handles both meeting descriptions (if available) and attendance insights.
 
 ---
@@ -30,24 +33,65 @@ This PowerShell script uses the Microsoft Graph API and Teams Application Access
 ---
 
 ### **2. Teams Application Access Policies**
-**Application Access Policies** are required to allow your app to access Teams meetings and attendance data. Follow these steps to configure:
+**Application Access Policies** are required to allow your app to access Teams meetings and attendance data.
 
-1. **Create an Application Access Policy**:
-   Use the following PowerShell command to create the policy:
+1. **Connect to Microsoft Teams**:
+   Make sure the Teams PowerShell module is installed and connected:
    ```powershell
-   New-CsApplicationAccessPolicy -PolicyName "AppAccessPolicyForGraph" -Description "Policy for Graph API access" -AppIds "64083eeb-dfe6-4134-a720-f33fa67b237b"
+   Install-Module -Name PowerShellGet -Force -SkipPublisherCheck
+   Install-Module -Name MicrosoftTeams
+   Connect-MicrosoftTeams
    ```
-   Replace the **AppIds** value with your Azure AD app's **Client ID**.
 
-2. **Assign the Policy to a Group**:
-   To assign the policy to a group, first ensure the target users are in the group:
+2. **Retrieve the Group**:
+   Find the Azure AD group you want to target:
    ```powershell
-   Grant-CsApplicationAccessPolicy -PolicyName "AppAccessPolicyForGraph" -Identity "Infra-Group"
-   ```
-   Replace `Infra-Group` with the name of the group containing users whose Teams data the app can access.
+   # Connect to Azure AD
+   Connect-AzureAD
 
-3. **Verify Policy Assignment**:
-   Check if the policy is assigned correctly using:
+   # Retrieve the group object
+   Get-AzureADGroup -SearchString "Infra-Group"
+   ```
+
+   Example Output:
+   ```
+   DisplayName: Infra-Group
+   ObjectId: 2aa5a15b-9ed8-478d-9029-ec52469fdb36
+   ```
+
+3. **Create the Policy**:
+   Create a Teams Application Access Policy for your app:
+   ```powershell
+   New-CsApplicationAccessPolicy -Identity "AppAccessPolicyForGroup" -AppIds "64083eeb-dfe6-4134-a720-f33fa67b237b"
+   ```
+
+4. **Assign the Policy to the Group**:
+   Bulk-apply the policy to all members of the group:
+   ```powershell
+   # Configuration
+   $GroupName = "Infra-Group"
+   $PolicyName = "AppAccessPolicyForGroup"
+
+   # Retrieve the group
+   $Group = Get-AzureADGroup -SearchString $GroupName
+
+   # Get group members
+   $GroupMembers = Get-AzureADGroupMember -ObjectId $Group.ObjectId
+
+   # Assign policy to all members
+   foreach ($User in $GroupMembers) {
+       Try {
+           Write-Host "Assigning policy '$PolicyName' to user: $($User.UserPrincipalName)..."
+           Grant-CsApplicationAccessPolicy -PolicyName $PolicyName -Identity $User.UserPrincipalName
+           Write-Host "Policy assigned successfully to $($User.UserPrincipalName)." -ForegroundColor Green
+       } Catch {
+           Write-Host "Error assigning policy to $($User.UserPrincipalName): $_" -ForegroundColor Red
+       }
+   }
+   ```
+
+5. **Verify the Policy**:
+   Confirm the policy was created:
    ```powershell
    Get-CsApplicationAccessPolicy
    ```
@@ -78,6 +122,7 @@ This PowerShell script uses the Microsoft Graph API and Teams Application Access
 
 ## Script Workflow
 
+### **Attendance and Meeting Insights**
 1. **Authentication**:
    The script retrieves an access token using the **Client Credentials Flow**.
    
@@ -97,8 +142,9 @@ This PowerShell script uses the Microsoft Graph API and Teams Application Access
 
 ---
 
-## Example Output
+## Example Outputs
 
+### **Meeting Insights**
 ```
 Connected using application permissions.
 Retrieving information for user: user@contoso.com...
@@ -114,6 +160,26 @@ User: John Doe, Email: john.doe@contoso.com, Total Time: 240 seconds
 User: Jane Smith, Email: jane.smith@contoso.com, Total Time: 360 seconds
 ```
 
+### **Group-Based Policy Management**
+```
+Connecting to Azure AD...
+Retrieving group: Infra-Group...
+Group found: Infra-Group
+Group Object ID: 2aa5a15b-9ed8-478d-9029-ec52469fdb36
+
+Fetching all members of the group...
+Found 3 members in the group:
+DisplayName: John Doe, UPN: john.doe@contoso.com
+DisplayName: Jane Smith, UPN: jane.smith@contoso.com
+DisplayName: Bob Lee, UPN: bob.lee@contoso.com
+
+Assigning policy 'AppAccessPolicyForGroup' to user: john.doe@contoso.com...
+Policy assigned successfully to john.doe@contoso.com.
+
+Assigning policy 'AppAccessPolicyForGroup' to user: jane.smith@contoso.com...
+Policy assigned successfully to jane.smith@contoso.com.
+```
+
 ---
 
 ## API Permissions and Justification
@@ -126,31 +192,17 @@ User: Jane Smith, Email: jane.smith@contoso.com, Total Time: 360 seconds
 
 ---
 
-## Teams Application Access Policies
+## Troubleshooting
 
-To restrict app access to specific users or groups, configure **Teams Application Access Policies**:
-- **Policy Creation**: Use `New-CsApplicationAccessPolicy`.
-- **Policy Assignment**: Use `Grant-CsApplicationAccessPolicy`.
-- **Verification**: Use `Get-CsApplicationAccessPolicy`.
+- **403 Forbidden**:
+  - Ensure the app has the correct API permissions.
+  - Verify that the **Teams Application Access Policy** is correctly assigned to the user or group.
+
+- **Group Policy Assignment Issues**:
+  - Ensure the group exists in Azure AD.
+  - Confirm group members and their UPNs are correct.
 
 ---
 
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## Contributing
-Feel free to fork this repository, submit pull requests, or report issues.
-
----
-
-## Troubleshooting
-- **403 Forbidden**:
-  - Ensure the app has the correct API permissions.
-  - Verify that the **Teams Application Access Policy** is correctly assigned to the user or group.
-- **No Data Found**:
-  - Check if the target user has valid Teams meetings in the last 7 days.
-  - Verify the target user’s UPN or object ID.
-
-For any issues, contact the repository owner or create a GitHub issue.
