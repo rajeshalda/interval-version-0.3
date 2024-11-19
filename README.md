@@ -1,6 +1,6 @@
 # Microsoft Graph API - Attendance and Meeting Insights Script
 
-This PowerShell script utilizes the Microsoft Graph API to retrieve Teams meetings and attendance data for a specific user over the past 7 days. It authenticates using the **Client Credentials Flow** and requires specific Microsoft Graph API permissions.
+This PowerShell script uses the Microsoft Graph API and Teams Application Access Policies to retrieve Teams meetings and attendance data for a specific user over the past 7 days. It authenticates using the **Client Credentials Flow** and ensures secure access via access policies.
 
 ---
 
@@ -11,24 +11,46 @@ This PowerShell script utilizes the Microsoft Graph API to retrieve Teams meetin
   - **Start/End Time**
   - **Online Meeting Details**
   - **Attendance Reports** with participant names, emails, and attendance durations.
-- Skips meetings without attendance reports or online meeting information.
+- Leverages **Teams Application Access Policies** for access control.
 - Handles both meeting descriptions (if available) and attendance insights.
 
 ---
 
 ## Prerequisites
 
-1. **Azure AD App Registration**:
-   - Register an app in the Azure AD Portal.
-   - Generate a **Client ID** and **Client Secret**.
-   - Assign the following **Application Permissions** under Microsoft Graph:
-     - `Calendars.Read`
-     - `OnlineMeetingArtifact.Read.All`
-     - `User.Read.All`
-   - Grant admin consent for these permissions.
+### **1. Azure AD App Registration**
+- Register an app in the Azure AD Portal.
+- Generate a **Client ID** and **Client Secret**.
+- Assign the following **Application Permissions** under Microsoft Graph:
+  - `Calendars.Read`
+  - `OnlineMeetingArtifact.Read.All`
+  - `User.Read.All`
+- Grant **admin consent** for these permissions.
 
-2. **Install PowerShell**:
-   - Ensure PowerShell is installed and configured to execute scripts.
+---
+
+### **2. Teams Application Access Policies**
+**Application Access Policies** are required to allow your app to access Teams meetings and attendance data. Follow these steps to configure:
+
+1. **Create an Application Access Policy**:
+   Use the following PowerShell command to create the policy:
+   ```powershell
+   New-CsApplicationAccessPolicy -PolicyName "AppAccessPolicyForGraph" -Description "Policy for Graph API access" -AppIds "64083eeb-dfe6-4134-a720-f33fa67b237b"
+   ```
+   Replace the **AppIds** value with your Azure AD app's **Client ID**.
+
+2. **Assign the Policy to a Group**:
+   To assign the policy to a group, first ensure the target users are in the group:
+   ```powershell
+   Grant-CsApplicationAccessPolicy -PolicyName "AppAccessPolicyForGraph" -Identity "Infra-Group"
+   ```
+   Replace `Infra-Group` with the name of the group containing users whose Teams data the app can access.
+
+3. **Verify Policy Assignment**:
+   Check if the policy is assigned correctly using:
+   ```powershell
+   Get-CsApplicationAccessPolicy
+   ```
 
 ---
 
@@ -104,6 +126,15 @@ User: Jane Smith, Email: jane.smith@contoso.com, Total Time: 360 seconds
 
 ---
 
+## Teams Application Access Policies
+
+To restrict app access to specific users or groups, configure **Teams Application Access Policies**:
+- **Policy Creation**: Use `New-CsApplicationAccessPolicy`.
+- **Policy Assignment**: Use `Grant-CsApplicationAccessPolicy`.
+- **Verification**: Use `Get-CsApplicationAccessPolicy`.
+
+---
+
 ## License
 This project is licensed under the MIT License - see the LICENSE file for details.
 
@@ -117,7 +148,7 @@ Feel free to fork this repository, submit pull requests, or report issues.
 ## Troubleshooting
 - **403 Forbidden**:
   - Ensure the app has the correct API permissions.
-  - Confirm admin consent is granted for the application.
+  - Verify that the **Teams Application Access Policy** is correctly assigned to the user or group.
 - **No Data Found**:
   - Check if the target user has valid Teams meetings in the last 7 days.
   - Verify the target user’s UPN or object ID.
