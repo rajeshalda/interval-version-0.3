@@ -191,6 +191,24 @@ Policy assigned successfully to jane.smith@contoso.com.
 | `OnlineMeetingArtifact.Read.All` | Application   | Fetch meeting attendance reports (`/onlineMeetings/.../attendanceReports`).   |
 
 ---
+# Single User Policy Assignment
+
+# 1. Connect to Microsoft Teams PowerShell
+Connect-MicrosoftTeams
+
+# 2. Install Microsoft Teams Module (if not installed)
+Install-Module -Name MicrosoftTeams -Force -AllowClobber
+
+# 3. Create the Application Access Policy
+New-CsApplicationAccessPolicy -Identity "TeamCalendarAccess" -AppIds "9ec41cd0-ae8c-4dd5-bc84-a3aeea4bda54" -Description "User can access the time of meeting"
+
+# 4. Grant the Created Policy to a User
+Grant-CsApplicationAccessPolicy -PolicyName "TeamCalendarAccess" -Identity "ramesh@m365x65088219.onmicrosoft.com"
+
+# 5. Verify the Policy Assignment
+Get-CsUserPolicyAssignment -Identity "ramesh@m365x65088219.onmicrosoft.com"
+Get-CsApplicationAccessPolicy -Identity "TeamCalendarAccess"
+
 
 ## Troubleshooting
 
